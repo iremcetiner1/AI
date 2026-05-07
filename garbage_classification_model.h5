@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garbage Classification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-image: url('back4.png');
+            background-size: cover;
+            background-repeat:no-repeat;
+            background-position: center;
+            background-attachment:fixed; 
+        }
+        h1 {
+            color: #4CAF50;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #333;
+        }
+        .hidden {
+            display: none;
+        }
+        input[type="file"] {
+            margin-top: 20px;
+            padding: 10px;
+            font-size: 16px;
+            border: 2px solid #4CAF50;
+            border-radius: 5px;
+            background-color: #f0f0f0;
+            cursor: pointer;
+        }
+        input[type="file"]:hover {
+            background-color: #e0e0e0;
+        }
+        button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #preview {
+            margin-top: 20px;
+            max-width: 250px;
+            max-height: 250px;
+            border: 1px solid #ddd;
+        }
+        .classes {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .class-box {
+            width: 110px;
+            height: 150px;
+            margin: 5px;
+            line-height: 50px;
+            text-align: center;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            font-weight: bold;
+            color: #333;
+            background-size: cover;
+            background-position: center;
+            transition: all 0.3s ease; /* Smooth scaling */
+        }
+
+        #cardboard {
+            background-image: url('cardboardback.png');
+        }
+
+        #glass {
+            background-image: url('glassback.png');
+        }
+
+        #metal {
+            background-image: url('metalback.png');
+        }
+
+        #plastic {
+            background-image: url('altıncıback.png');
+        }
+
+        #trash {
+            background-image: url('trashback.png');
+        }
+
+        #paper {
+            background-image: url('paperback.png');
+        }
+
+        .active {
+            background-color: #4CAF50;
+            color: white;
+            transform: scale(1.2); /* Makes the box larger */
+            border: 3px solid #4CAF50; /* Green border */
+        }
+
+        .inactive {
+            border: 3px solid red; /* Red border for incorrect classification */
+        }
+        .btns{
+            display: flex;
+            justify-content: center;
+        }
+
+        #imageUpload{
+            margin-right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1 style="font-size: 35px;">Garbage Classification</h1>
+    <p style="font-size: 20px;">Upload an image to classify its category.</p>
+    <img id="preview" class="hidden" alt="Uploaded Image Preview">
+    <div class="btns">
+        <input type="file" id="imageUpload" accept="image/*">
+        <button id="classifyButton">Classify Image</button>
+    </div>
+    <div id="result" class="hidden"></div>
+
+    <div class="classes">
+        <div class="class-box" id="cardboard">CARDBOARD</div>
+        <div class="class-box" id="glass">GLASS</div>
+        <div class="class-box" id="metal">METAL</div>
+        <div class="class-box" id="plastic">PLASTIC</div>
+        <div class="class-box" id="trash">TRASH</div>
+        <div class="class-box" id="paper">PAPER</div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('imageUpload');
+        const previewImage = document.getElementById('preview');
+        const resultDiv = document.getElementById('result');
+        const classifyButton = document.getElementById('classifyButton');
+        const classBoxes = document.querySelectorAll('.class-box');
+
+        // Show image preview when a file is selected
+        fileInput.addEventListener('change', () => {
+            const file = fileInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImage.src = e.target.result;
+                    previewImage.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewImage.classList.add('hidden');
+            }
+        });
+
+        classifyButton.addEventListener('click', () => {
+            if (!fileInput.files[0]) {
+                resultDiv.textContent = 'Please upload an image.';
+                resultDiv.classList.remove('hidden');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            resultDiv.textContent = 'Classifying...';
+            resultDiv.classList.remove('hidden');
+
+            fetch('http://127.0.0.1:5000/classify', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    resultDiv.textContent = `Error: ${data.error}`;
+                } else {
+                    resultDiv.textContent = `Predicted Class: ${data.predicted_class} (Confidence: ${data.confidence})`;
+
+                    // Clear previous highlights and reset the size
+                    classBoxes.forEach(box => {
+                        box.classList.remove('active', 'inactive');
+                        box.style.transform = ''; // Reset any scaling
+                    });
+
+                    // Highlight the correct class with green and make it bigger
+                    const predictedClass = data.predicted_class.toLowerCase();
+                    const classBox = document.getElementById(predictedClass); // ID directly matches
+                    if (classBox) {
+                        classBox.classList.add('active');
+                    }
+
+                    // Highlight all other classes with a red border (if needed)
+                    classBoxes.forEach(box => {
+                        if (!box.classList.contains('active')) {
+                            box.classList.add('inactive');
+                        }
+                    });
+                }
+            })
+            .catch(error => {
+                resultDiv.textContent = `Error: ${error.message}`;
+            });
+        });
+    </script>
+</body>
+</html>
